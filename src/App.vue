@@ -14,7 +14,46 @@ export default {
     },
     dbs: {
       type: Array,
-      default: () => []
+      default: () => [
+        {
+          dbName: 'db_bar',
+          tables: [
+            {
+              tblName: 'user',
+              tableColumns: [
+                {
+                  fieldName: 'username'
+                }
+              ]
+            },
+            {
+              tblName: 'log',
+              tableColumns: []
+            },
+            {
+              tblName: 'goods',
+              tableColumns: []
+            }
+          ]
+        },
+        {
+          dbName: 'db_foo',
+          tables: [
+            {
+              tblName: 'price',
+              tableColumns: []
+            },
+            {
+              tblName: 'time',
+              tableColumns: []
+            },
+            {
+              tblName: 'updata_user',
+              tableColumns: []
+            }
+          ]
+        }
+      ]
     },
     onInputField: {
       type: Function,
@@ -34,7 +73,7 @@ export default {
     },
     theme: {
       type: String,
-      default: 'vs'
+      default: 'myCoolTheme'
     },
     customKeywords: {
       type: Array,
@@ -72,14 +111,14 @@ export default {
       immediate: true,
       handler() {
         this.monacoEditor &&
-          this.monacoEditor.layout({ width: this.width, height: this.height })
+        this.monacoEditor.layout({ width: this.width, height: this.height })
       }
     },
     height: {
       immediate: true,
       handler() {
         this.monacoEditor &&
-          this.monacoEditor.layout({ width: this.width, height: this.height })
+        this.monacoEditor.layout({ width: this.width, height: this.height })
       }
     },
     theme: {
@@ -105,30 +144,50 @@ export default {
     async initEditor() {
       // 实例化snippets
       this.sqlSnippets = new SQLSnippets(
-        monaco,
-        this.customKeywords,
-        this.onInputField,
-        this.onInputTableAlia,
-        this.dbs
+          monaco,
+          this.customKeywords,
+          this.onInputField,
+          this.onInputTableAlia,
+          this.dbs
       )
       // 设置编辑器语言
       this.completionItemProvider = monaco.languages.registerCompletionItemProvider(
-        'sql',
-        {
-          triggerCharacters: [' ', '.', ...this.triggerCharacters],
-          provideCompletionItems: (model, position) =>
-            this.sqlSnippets.provideCompletionItems(model, position)
-        }
+          'sql',
+          {
+            triggerCharacters: [' ', '.', ...this.triggerCharacters],
+            provideCompletionItems: (model, position) =>
+                this.sqlSnippets.provideCompletionItems(model, position)
+          }
       )
       // 初始化编辑器
       this.monacoEditor = monaco.editor.create(this.$refs.container, {
         value: this.value,
         language: 'sql',
-        ...this.options
+        ...this.options,
+        theme: 'myCoolTheme'
       })
       // 重新渲染
       this.monacoEditor.layout({ width: this.width, height: this.height })
       // 监听变化
+
+      // Register a tokens provider for the language
+      monaco.languages.setMonarchTokensProvider('sql', {
+        tokenizer: {
+          root: [
+            [/^(?=.*SELECT.*FROM)(?!.*(?:CREATE|DROP|UPDATE|INSERT|ALTER|DELETE|ATTACH|DETACH)).*/, "custom-error"],
+          ]
+        }
+      });
+
+      // Define a new theme that contains only rules that match this language
+      monaco.editor.defineTheme('myCoolTheme', {
+        base: 'vs',
+        inherit: false,
+        rules: [
+          { token: 'custom-error', foreground: 'ff0000', fontStyle: 'bold' },
+        ]
+      });
+
       this.monacoEditor.onDidChangeModelContent(e => {
         this.caretOffset = e.changes[0].rangeOffset // 获取光标位置
         this.$emit('input', this.monacoEditor.getValue())
@@ -143,38 +202,38 @@ export default {
         this.$emit('onDidChangeCursorSelection', selectedText)
       })
       this.monacoEditor.addCommand(
-        monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-        () => {
-          this.$emit('ctrl-enter')
-        }
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+          () => {
+            this.$emit('ctrl-enter')
+          }
       )
       this.monacoEditor.addCommand(
-        monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_I,
-        () => {
-          // 插入${ } 并移动光标至${|}
-          // 获取当前光标位置
-          const position = this.monacoEditor.getPosition()
-          // 新建range实例
-          const range = new monaco.Range(
-            position.lineNumber,
-            position.column,
-            position.lineNumber,
-            position.column
-          )
-          // 需插入文本配置
-          const options = {
-            range: range,
-            text: ' ${  }',
-            forceMoveMarkers: true
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_I,
+          () => {
+            // 插入${ } 并移动光标至${|}
+            // 获取当前光标位置
+            const position = this.monacoEditor.getPosition()
+            // 新建range实例
+            const range = new monaco.Range(
+                position.lineNumber,
+                position.column,
+                position.lineNumber,
+                position.column
+            )
+            // 需插入文本配置
+            const options = {
+              range: range,
+              text: ' ${  }',
+              forceMoveMarkers: true
+            }
+            // 插入文本
+            this.monacoEditor.executeEdits('my-source', [options])
+            // 移动光标
+            this.monacoEditor.setPosition({
+              column: position.column + 3,
+              lineNumber: position.lineNumber
+            })
           }
-          // 插入文本
-          this.monacoEditor.executeEdits('my-source', [options])
-          // 移动光标
-          this.monacoEditor.setPosition({
-            column: position.column + 3,
-            lineNumber: position.lineNumber
-          })
-        }
       )
     }
   }
